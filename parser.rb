@@ -1,12 +1,27 @@
 #! /usr/local/bin/ruby
 # encoding: utf-8
 
+class String
+  def string_between_markers marker1, marker2
+    self[/#{Regexp.escape(marker1)}(.*?)#{Regexp.escape(marker2)}/m, 1]
+  end
+
+  def string_from_marker marker1
+    self[/#{Regexp.escape(marker1)}(.*?)/m, 1]
+  end
+end
+
 class Category
   attr_accessor :name
 end
 
 class Book
-  attr_accessor :name, :category, :author, :editorial
+  attr_accessor :title, :subtitle, :category, :author, :editorial
+
+  def parse_title hash_title
+    @title = hash_title.string_between_markers '^a','^b'
+    @subtitle = hash_title.string_from_marker '^b'
+  end
 end
 
 class Author
@@ -16,13 +31,6 @@ end
 class Library
   attr_accessor :books
 end
-
-class String
-  def string_between_markers marker1, marker2
-    self[/#{Regexp.escape(marker1)}(.*?)#{Regexp.escape(marker2)}/m, 1]
-  end
-end
-
 
 class Parser
   attr_accessor :library_hash
@@ -49,8 +57,8 @@ class Parser
           unless line == ''
             hash_book = populate_hash line, hash_book
           else
-            hash_book = {}
             @library_hash.push hash_book
+            hash_book = {}
           end
         end
       end
@@ -78,7 +86,7 @@ def main
           author.name = value
           book.author = author
         when '245'
-          book.name = value
+          book.parse_title value
         when '260'
           book.editorial = value
       end
@@ -86,7 +94,8 @@ def main
     library.books.push book
   end
 
-  puts library.books[0].name
+  puts library.books[0].subtitle
+  #library.save
 end
 
 main()
