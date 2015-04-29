@@ -6,8 +6,12 @@ class String
     self[/#{Regexp.escape(marker1)}(.*?)#{Regexp.escape(marker2)}/m, 1]
   end
 
-  def string_from_marker marker1
-    self[/#{Regexp.escape(marker1)}(.*?)/m, self.length]
+  def string_from_marker marker
+    if self.index(marker).nil?
+      self[0,self.length]
+    else
+      self[self.index(marker)+2, self.length]
+    end
   end
 
   def splitparse_by_markers *markers
@@ -22,6 +26,10 @@ end
 
 class Category
   attr_accessor :name
+
+  def parse_category hash_category
+    @name = hash_category.string_from_marker '^a'
+  end
 end
 
 class Book
@@ -32,18 +40,24 @@ class Book
     @subtitle = hash_title.string_from_marker '^b'
   end
 
-  def parse_call hash_call
-    @callnumber = hash_call.string_from_marker '^a'
-  end
-
-  def parse_editorial hash_call
-    @callnumber = hash_call.string_from_marker '^a'
-  end
-
   def parse_isbn hash_isbn
-    @isbn = hash_isbn.splitparse_by_markers 'a', 'b'
-    @dimensions.shift
-    @dimensions = @dimensions.join(', ')
+    @isbn = hash_isbn.string_from_marker '^a'
+  end
+
+  def parse_pubtype hash_pubtype
+    @pubtype = hash_pubtype.string_from_marker '^a'
+  end
+
+  def parse_editorial hash_editorial
+    @editorial = hash_editorial.splitparse_by_markers 'a', 'b', 'c'
+    @editorial.shift
+    @editorial = @editorial.join(', ')
+  end
+
+  def parse_call hash_call
+    @callnumber = hash_call.splitparse_by_markers 'a', 'b'
+    @callnumber.shift
+    @callnumber = @callnumber.join(', ')
   end
 
   def parse_dimensions hash_dimensions
@@ -54,7 +68,11 @@ class Book
 end
 
 class Author
-  attr_accessor :name, :last_name
+  attr_accessor :name
+
+  def parse_author hash_author
+    @name = hash_author.string_from_marker '^a'
+  end
 end
 
 class Library
@@ -110,22 +128,26 @@ def main
       case key
         when '650'
           category = Category.new
-          category.name = value
+          category.parse_category value
           book.categories.push category
-        when '100', '700'
+        when '100'
           author = Author.new
-          author.name = value
+          author.parse_author value
+          book.authors.insert(0,author)
+        when '700'
+          author = Author.new
+          author.parse_author value
           book.authors.push author
         when '245'
           book.parse_title value
         when '260'
-          book.editorial = value
+          book.parse_editorial value
         when '82'
           book.parse_call value
         when '20'
           book.parse_isbn value
         when '842'
-          book.pubtype = value 
+          book.parse_pubtype value 
         when '300'
           book.parse_dimensions value
       end
@@ -135,7 +157,7 @@ def main
 
   # puts parser.library_hash[0].inspect
   
-  puts library.books[0].dimensions
+  puts library.books[0].inspect
   #library.save
 end
 
