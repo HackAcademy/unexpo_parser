@@ -28,16 +28,19 @@ class Category
   attr_accessor :name
 
   def parse_category hash_category
-    @name = hash_category.string_from_marker '^a'
+    @name = hash_category.splitparse_by_markers 'a', 'n', 'x'
+    @name.shift
+    @name = @name.join(', ')
   end
 end
 
 class Book
-  attr_accessor :title, :subtitle, :categories, :authors, :editorial, :callnumber, :isbn, :pubtype, :dimensions
+  attr_accessor :title, :categories, :authors, :editorial, :callnumber, :isbn, :pubtype, :dimensions
 
   def parse_title hash_title
-    @title = hash_title.string_between_markers '^a','^b'
-    @subtitle = hash_title.string_from_marker '^b'
+    @title = hash_title.splitparse_by_markers 'a', 'b'
+    @title.shift
+    @title = @title.join(', ')
   end
 
   def parse_isbn hash_isbn
@@ -89,7 +92,17 @@ class Parser
   def populate_hash line, hash_book
     key = line.string_between_markers('<','>')
     value = line.string_between_markers('>','<')
-    hash_book[key] = value
+    if hash_book[key].nil?
+      hash_book[key] = value
+    else
+      unless hash_book[key].kind_of?(Array)
+        temp = hash_book[key]
+        hash_book[key] = Array.new
+        hash_book[key].push temp
+      end
+      hash_book[key].push value
+    end
+
 
     hash_book
   end
@@ -119,25 +132,41 @@ def main
 
   library = Library.new
   library.books = []
-
+  # puts parser.library_hash[23].inspect
   parser.library_hash.each do |hash_book|
     book = Book.new
-    book.authors = []
-    book.categories= []
+    book.authors = Array.new
+    book.categories = Array.new
     hash_book.each do |key,value|
       case key
         when '650'
-          category = Category.new
-          category.parse_category value
-          book.categories.push category
+          if value.kind_of?(Array)
+            value.each do |cat|
+              category = Category.new
+              category.parse_category cat
+              book.categories.push category
+            end
+          else
+            category = Category.new
+            category.parse_category value
+            book.categories.push category
+          end
         when '100'
           author = Author.new
           author.parse_author value
           book.authors.insert(0,author)
         when '700'
-          author = Author.new
-          author.parse_author value
-          book.authors.push author
+          if value.kind_of?(Array)
+            value.each do |auth|
+              author = Author.new
+              author.parse_author auth
+              book.authors.push author
+            end
+          else
+            author = Author.new
+            author.parse_author value
+            book.authors.push author
+          end
         when '245'
           book.parse_title value
         when '260'
@@ -145,18 +174,32 @@ def main
         when '82'
           book.parse_call value
         when '20'
-          book.parse_isbn value
+          if value.kind_of?(Array)
+            book.parse_isbn value[0]
+          else
+            book.parse_isbn value
+          end
         when '842'
           book.parse_pubtype value 
         when '300'
           book.parse_dimensions value
       end
     end
+    # puts book.categories.inspect
     library.books.push book
   end
 
   # puts parser.library_hash[0].inspect
   
+  library.books.each do |b|
+    if b.categories.length > 0
+      # puts b.categories.inspect
+      # b.categories.each do |c|
+      #   puts c.name
+      # end
+    end
+  end
+
   puts library.books[0].inspect
   #library.save
 end
