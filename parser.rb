@@ -34,7 +34,7 @@ class Category
   end
 end
 
-class Book
+class Publication
   attr_accessor :title, :categories, :authors, :editorial, :callnumber, :isbn, :pubtype, :dimensions
 
   def parse_title hash_title
@@ -79,7 +79,7 @@ class Author
 end
 
 class Library
-  attr_accessor :books
+  attr_accessor :publications
 end
 
 class Parser
@@ -89,36 +89,36 @@ class Parser
     @library_hash = []
   end
 
-  def populate_hash line, hash_book
+  def populate_hash line, hash_publication
     key = line.string_between_markers('<','>')
     value = line.string_between_markers('>','<')
-    if hash_book[key].nil?
-      hash_book[key] = value
+    if hash_publication[key].nil?
+      hash_publication[key] = value
     else
-      unless hash_book[key].kind_of?(Array)
-        temp = hash_book[key]
-        hash_book[key] = Array.new
-        hash_book[key].push temp
+      unless hash_publication[key].kind_of?(Array)
+        temp = hash_publication[key]
+        hash_publication[key] = Array.new
+        hash_publication[key].push temp
       end
-      hash_book[key].push value
+      hash_publication[key].push value
     end
 
 
-    hash_book
+    hash_publication
   end
 
   def start
-    hash_book = {}
+    hash_publication = {}
 
     File.open('library.bak', 'r', :encoding => "UTF-8") do |file|
       while line = file.gets
         line = line.chomp
         unless line == '##' || line[0..2] == 'Mfn'
           unless line == ''
-            hash_book = populate_hash line, hash_book
+            hash_publication = populate_hash line, hash_publication
           else
-            @library_hash.push hash_book
-            hash_book = {}
+            @library_hash.push hash_publication
+            hash_publication = {}
           end
         end
       end
@@ -131,76 +131,67 @@ def main
   parser.start
 
   library = Library.new
-  library.books = []
+  library.publications = []
   # puts parser.library_hash[23].inspect
-  parser.library_hash.each do |hash_book|
-    book = Book.new
-    book.authors = Array.new
-    book.categories = Array.new
-    hash_book.each do |key,value|
+  parser.library_hash.each do |hash_publication|
+    publication = Publication.new
+    publication.authors = Array.new
+    publication.categories = Array.new
+    hash_publication.each do |key,value|
       case key
         when '650'
           if value.kind_of?(Array)
             value.each do |cat|
               category = Category.new
               category.parse_category cat
-              book.categories.push category
+              publication.categories.push category
             end
           else
             category = Category.new
             category.parse_category value
-            book.categories.push category
+            publication.categories.push category
           end
         when '100'
           author = Author.new
           author.parse_author value
-          book.authors.insert(0,author)
+          publication.authors.insert(0,author)
         when '700'
           if value.kind_of?(Array)
             value.each do |auth|
               author = Author.new
               author.parse_author auth
-              book.authors.push author
+              publication.authors.push author
             end
           else
             author = Author.new
             author.parse_author value
-            book.authors.push author
+            publication.authors.push author
           end
         when '245'
-          book.parse_title value
+          publication.parse_title value
         when '260'
-          book.parse_editorial value
+          publication.parse_editorial value
         when '82'
-          book.parse_call value
+          publication.parse_call value
         when '20'
           if value.kind_of?(Array)
-            book.parse_isbn value[0]
+            publication.parse_isbn value[0]
           else
-            book.parse_isbn value
+            publication.parse_isbn value
           end
         when '842'
-          book.parse_pubtype value 
+          publication.parse_pubtype value 
         when '300'
-          book.parse_dimensions value
+          publication.parse_dimensions value
       end
     end
-    # puts book.categories.inspect
-    library.books.push book
+    # puts publication.categories.inspect
+    library.publications.push publication
   end
 
   # puts parser.library_hash[0].inspect
   
-  library.books.each do |b|
-    if b.categories.length > 0
-      # puts b.categories.inspect
-      # b.categories.each do |c|
-      #   puts c.name
-      # end
-    end
-  end
-
-  puts library.books[0].inspect
+  puts library.publications[0].inspect
   #library.save
 end
 
